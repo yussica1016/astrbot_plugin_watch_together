@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一起看 Watch Together</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #FAF6F0;
+    --card: #F5EDE3;
+    --text: #4A3F35;
+    --text-light: #8A7E72;
+    --accent: #C0392B;
+    --accent2: #27AE60;
+    --border: #E0D5C8;
+    --shadow: rgba(74, 63, 53, 0.08);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 24px 0 4px;
+    color: var(--text);
+  }
+  .subtitle {
+    text-align: center;
+    font-style: italic;
+    color: var(--text-light);
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .card h3 {
+    font-size: 14px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  /* 视频播放器 */
+  #player-section video {
+    width: 100%;
+    border-radius: 12px;
+    background: #000;
+  }
+
+  /* 状态指示 */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--card);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ccc;
+  }
+  .status-dot.connected { background: var(--accent2); }
+  .status-dot.syncing { background: #F39C12; animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* 输入区域 */
+  .input-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .input-group input, .input-group select {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .input-group input:focus, .input-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    background: var(--text);
+    color: var(--bg);
+    transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  button.secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  /* 字幕显示区 */
+  #subtitle-display {
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-top: -40px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 44px;
+    display: none;
+  }
+
+  /* 房间列表 */
+  .room-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .room-item:last-child { border-bottom: none; }
+
+  /* 文件上传 */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .upload-zone:hover { border-color: var(--accent); }
+  .upload-zone input { display: none; }
+
+  /* Tab 切换 */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text-light);
+    border: 1px solid var(--border);
+  }
+  .tab.active {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+  }
+
+  .hidden { display: none !important; }
+
+  /* 观影日志 */
+  .log-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .log-title { font-weight: 600; }
+  .log-meta { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+  .log-thoughts { font-size: 13px; margin-top: 6px; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>一起看</h1>
+  <p class="subtitle">Watch Together</p>
+
+  <!-- 状态栏 -->
+  <div class="status-bar">
+    <div class="status-dot" id="ws-status"></div>
+    <span id="ws-status-text">未连接</span>
+    <span style="margin-left:auto;font-size:12px;color:var(--text-light)" id="room-info"></span>
+  </div>
+
+  <!-- 视频源选择 -->
+  <div class="card" id="source-section">
+    <h3>📽 视频源</h3>
+    <div class="tabs">
+      <div class="tab active" data-tab="url">在线链接</div>
+      <div class="tab" data-tab="upload">本地上传</div>
+      <div class="tab" data-tab="webdav">WebDAV</div>
+    </div>
+
+    <!-- 在线链接 -->
+    <div id="tab-url">
+      <div class="input-group">
+        <input type="text" id="video-url" placeholder="粘贴视频直链（mp4/webm/m3u8）">
+        <button onclick="loadVideoURL()">加载</button>
+      </div>
+    </div>
+
+    <!-- 本地上传 -->
+    <div id="tab-upload" class="hidden">
+      <div class="upload-zone" onclick="document.getElementById('video-file').click()">
+        📁 点击上传视频文件
+        <input type="file" id="video-file" accept="video/*" onchange="uploadVideo(this)">
+      </div>
+    </div>
+
+    <!-- WebDAV -->
+    <div id="tab-webdav" class="hidden">
+      <div class="input-group">
+        <input type="text" id="webdav-path" placeholder="WebDAV 文件路径">
+        <button onclick="loadWebDAV()">加载</button>
+      </div>
+    </div>
+
+    <!-- 字幕上传 -->
+    <div style="margin-top:12px">
+      <div class="input-group">
+        <button class="secondary" onclick="document.getElementById('sub-file').click()" style="flex:none">
+          📝 上传字幕(SRT)
+        </button>
+        <input type="file" id="sub-file" accept=".srt" onchange="uploadSubtitle(this)" style="display:none">
+        <span id="sub-status" style="font-size:13px;color:var(--text-light);line-height:40px"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 播放器 -->
+  <div class="card" id="player-section">
+    <video id="player" controls>
+      <source src="" type="video/mp4">
+    </video>
+    <div id="subtitle-display"></div>
+  </div>
+
+  <!-- 观影日志 -->
+  <div class="card">
+    <h3>📝 观影日志</h3>
+    <div id="watch-log-list">
+      <p style="color:var(--text-light);font-size:14px">加载中...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 全局状态
+// ============================================================
+let ws = null;
+let roomId = null;
+let isRemoteAction = false;  // 防止回声
+let subtitles = [];
+let subtitleTimer = null;
+
+const player = document.getElementById('player');
+const subDisplay = document.getElementById('subtitle-display');
+
+// ============================================================
+// 初始化
+// ============================================================
+window.addEventListener('load', () => {
+  // 从URL获取房间ID
+  const params = new URLSearchParams(window.location.search);
+  roomId = params.get('room') || `room_${Date.now()}`;
+  document.getElementById('room-info').textContent = `房间: ${roomId}`;
+
+  // 如果有房间，加载房间信息
+  if (params.get('room')) {
+    loadRoomInfo(roomId);
+  }
+
+  // 连接WebSocket
+  connectWS();
+
+  // 加载观影日志
+  loadWatchLog();
+
+  // Tab切换
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      ['url', 'upload', 'webdav'].forEach(id => {
+        document.getElementById(`tab-${id}`).classList.toggle('hidden', id !== tab.dataset.tab);
+      });
+    });
+  });
+});
+
+// ============================================================
+// WebSocket 连接
+// ============================================================
+function connectWS() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/ws/${roomId}`;
+
+  try {
+    ws = new WebSocket(wsUrl);
+  } catch (e) {
+    console.error('WebSocket连接失败:', e);
+    return;
+  }
+
+  ws.onopen = () => {
+    document.getElementById('ws-status').className = 'status-dot connected';
+    document.getElementById('ws-status-text').textContent = '已连接';
+  };
+
+  ws.onclose = () => {
+    document.getElementById('ws-status').className = 'status-dot';
+    document.getElementById('ws-status-text').textContent = '已断开，3秒后重连...';
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = () => {
+    document.getElementById('ws-status').className = 'status-dot';
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    isRemoteAction = true;
+
+    switch (data.type) {
+      case 'play':
+        player.currentTime = data.time;
+        player.play();
+        break;
+      case 'pause':
+        player.currentTime = data.time;
+        player.pause();
+        break;
+      case 'seek':
+        player.currentTime = data.time;
+        break;
+      case 'load':
+        player.src = data.source;
+        player.load();
+        break;
+    }
+
+    // 短暂标记同步状态
+    document.getElementById('ws-status').className = 'status-dot syncing';
+    setTimeout(() => {
+      document.getElementById('ws-status').className = 'status-dot connected';
+      isRemoteAction = false;
+    }, 500);
+  };
+}
+
+function sendSync(type, extra = {}) {
+  if (ws && ws.readyState === WebSocket.OPEN && !isRemoteAction) {
+    ws.send(JSON.stringify({
+      type,
+      time: player.currentTime,
+      timestamp: Date.now(),
+      ...extra
+    }));
+  }
+}
+
+// ============================================================
+// 播放器事件监听
+// ============================================================
+player.addEventListener('play', () => sendSync('play'));
+player.addEventListener('pause', () => sendSync('pause'));
+player.addEventListener('seeked', () => sendSync('seek'));
+
+// ============================================================
+// 视频源加载
+// ============================================================
+function loadVideoURL() {
+  const url = document.getElementById('video-url').value.trim();
+  if (!url) return;
+  player.src = url;
+  player.load();
+  sendSync('load', { source: url });
+  updateRoom({ video_source: url, video_type: 'url' });
+}
+
+async function uploadVideo(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const resp = await fetch('/api/upload/video', { method: 'POST', body: formData });
+  const data = await resp.json();
+
+  if (data.path) {
+    player.src = data.path;
+    player.load();
+    sendSync('load', { source: data.path });
+    updateRoom({ video_source: data.path, video_type: 'upload' });
+    document.querySelector('#tab-upload .upload-zone').textContent = `✅ ${file.name}`;
+  }
+}
+
+function loadWebDAV() {
+  const path = document.getElementById('webdav-path').value.trim();
+  if (!path) return;
+  // WebDAV需要服务端代理，这里发给后端处理
+  const proxyUrl = `/api/webdav/proxy?path=${encodeURIComponent(path)}`;
+  player.src = proxyUrl;
+  player.load();
+  sendSync('load', { source: proxyUrl });
+  updateRoom({ video_source: path, video_type: 'webdav' });
+}
+
+// ============================================================
+// 字幕
+// ============================================================
+async function uploadSubtitle(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // 本地解析SRT
+  const text = await file.text();
+  subtitles = parseSRT(text);
+  document.getElementById('sub-status').textContent = `✅ ${file.name} (${subtitles.length}条)`;
+  subDisplay.style.display = 'block';
+
+  // 也上传到服务器（给LLM用）
+  const formData = new FormData();
+  formData.append('file', file);
+  const resp = await fetch('/api/upload/subtitle', { method: 'POST', body: formData });
+  const data = await resp.json();
+  if (data.path) {
+    updateRoom({ subtitle_path: data.path });
+  }
+
+  // 启动字幕定时器
+  if (subtitleTimer) clearInterval(subtitleTimer);
+  subtitleTimer = setInterval(updateSubtitleDisplay, 250);
+}
+
+function parseSRT(text) {
+  const blocks = text.trim().split(/\n\s*\n/);
+  const result = [];
+  for (const block of blocks) {
+    const lines = block.trim().split('\n');
+    if (lines.length < 3) continue;
+    const m = lines[1].match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/);
+    if (!m) continue;
+    const start = +m[1]*3600 + +m[2]*60 + +m[3] + +m[4]/1000;
+    const end = +m[5]*3600 + +m[6]*60 + +m[7] + +m[8]/1000;
+    const txt = lines.slice(2).join(' ').replace(/<[^>]+>/g, '');
+    result.push({ start, end, text: txt });
+  }
+  return result;
+}
+
+function updateSubtitleDisplay() {
+  const t = player.currentTime;
+  const active = subtitles.find(s => t >= s.start && t <= s.end);
+  if (active) {
+    subDisplay.textContent = active.text;
+    subDisplay.style.display = 'block';
+  } else {
+    subDisplay.textContent = '';
+  }
+}
+
+// ============================================================
+// 房间管理
+// ============================================================
+async function loadRoomInfo(id) {
+  try {
+    const resp = await fetch(`/api/rooms/${id}`);
+    const room = await resp.json();
+    if (room.video_source) {
+      player.src = room.video_source;
+      player.load();
+      if (room.current_time) player.currentTime = room.current_time;
+    }
+  } catch (e) {
+    console.log('加载房间信息失败:', e);
+  }
+}
+
+async function updateRoom(data) {
+  try {
+    await fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: roomId, ...data })
+    });
+  } catch (e) {
+    console.log('更新房间失败:', e);
+  }
+}
+
+// ============================================================
+// 观影日志
+// ============================================================
+async function loadWatchLog() {
+  try {
+    const resp = await fetch('/api/watchlog');
+    const logs = await resp.json();
+    const container = document.getElementById('watch-log-list');
+
+    if (!logs.length) {
+      container.innerHTML = '<p style="color:var(--text-light);font-size:14px">还没有观影记录，在QQ里发 /看完了 电影名 来记录吧～</p>';
+      return;
+    }
+
+    container.innerHTML = logs.slice(0, 10).map(log => `
+      <div class="log-item">
+        <div class="log-title">《${log.title}》${log.rating ? ' ⭐'.repeat(log.rating) : ''}</div>
+        <div class="log-meta">${log.category || '电影'} · ${(log.watched_at || '').slice(0, 10)}</div>
+        ${log.thoughts ? `<div class="log-thoughts">💭 ${log.thoughts}</div>` : ''}
+      </div>
+    `).join('');
+  } catch (e) {
+    console.log('加载日志失败:', e);
+  }
+}
+</script>
+</body>
+</html>
