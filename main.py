@@ -16,11 +16,9 @@ import json
 import sqlite3
 import threading
 import time
-from datetime import datetime
 
 from astrbot.api.star import Context, Star, register
 from astrbot.api.event import AstrMessageEvent
-from astrbot.api.message_components import Plain
 
 # ============================================================
 # 配置
@@ -146,7 +144,16 @@ def start_web_server():
         from flask_sock import Sock
 
     app = Flask(__name__, static_folder=os.path.join(PLUGIN_DIR, "web"))
+    app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB 视频上传上限
     sock = Sock(app)
+
+    # CORS 支持（允许跨域访问API）
+    @app.after_request
+    def add_cors(response):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
 
     # WebSocket 连接池：room_id -> [ws1, ws2, ...]
     ws_rooms = {}
@@ -205,7 +212,7 @@ def start_web_server():
             return jsonify({"error": "房间不存在"}), 404
         return jsonify({
             "id": room[0], "title": room[1], "video_source": room[2],
-            "video_type": room[3], "subtitle_path": room[4],
+            "video_type": room[3], "has_subtitle": bool(room[4]),
             "status": room[5], "current_time": room[6], "is_playing": bool(room[7])
         })
 
@@ -216,7 +223,9 @@ def start_web_server():
         if "file" not in request.files:
             return jsonify({"error": "没有文件"}), 400
         f = request.files["file"]
-        filename = f"{int(time.time())}_{f.filename}"
+        # 安全处理文件名，防止路径遍历
+        safe_name = re.sub(r'[^\w\-.]', '_', f.filename or "video")
+        filename = f"{int(time.time())}_{safe_name}"
         filepath = os.path.join(UPLOAD_DIR, filename)
         f.save(filepath)
         return jsonify({"path": f"/api/videos/{filename}", "filename": filename})
@@ -226,7 +235,10 @@ def start_web_server():
         if "file" not in request.files:
             return jsonify({"error": "没有文件"}), 400
         f = request.files["file"]
-        filename = f"{int(time.time())}_{f.filename}"
+        safe_name = re.sub(r'[^\w\-.]', '_', f.filename or "subtitle.srt")
+        if not safe_name.endswith('.srt'):
+            return jsonify({"error": "只支持SRT格式字幕"}), 400
+        filename = f"{int(time.time())}_{safe_name}"
         filepath = os.path.join(SUBTITLE_DIR, filename)
         f.save(filepath)
         return jsonify({"path": filepath, "filename": filename})
@@ -482,14 +494,15 @@ class WatchTogetherPlugin(Star):
         uid = event.get_sender_id()
 
         conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
         # 更新最近一条同名记录的评分
-        conn.execute(
+        cursor.execute(
             "UPDATE watch_log SET rating=? WHERE uid=? AND title=? AND id=(SELECT MAX(id) FROM watch_log WHERE uid=? AND title=?)",
             (rating, uid, title, uid, title)
         )
-        if conn.total_changes == 0:
+        if cursor.rowcount == 0:
             # 没有记录则新建
-            conn.execute(
+            cursor.execute(
                 "INSERT INTO watch_log (uid, title, rating) VALUES (?,?,?)",
                 (uid, title, rating)
             )
