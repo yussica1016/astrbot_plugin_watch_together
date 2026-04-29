@@ -1,6 +1,6 @@
 name: astrbot_plugin_watch_together
 display_name: 一起看 Watch Together
-desc: "同步观影 + 异步观影插件。支持本地上传、在线链接、WebDAV三种视频源。同步模式通过WebSocket实时同步播放状态并将字幕喂给LLM实现AI陪看；异步模式记录观影日志供LLM搜索讨论。"
+desc: "AstrBot 同步/异步观影插件 · 和你的AI伴侣一起看电影。设计叶枔枖，编写叶克宝。支持本地上传、在线链接、WebDAV三种视频源。"
 version: "1.0.0"
 author: "叶枔枖 & 叶克宝"
 repo: "https://github.com/yussica1016/astrbot_plugin_watch_together"
