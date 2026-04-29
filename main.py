@@ -18,7 +18,8 @@ import threading
 import time
 
 from astrbot.api.star import Context, Star, register
-from astrbot.api.event import AstrMessageEvent
+from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api import logger
 
 # ============================================================
 # 配置
@@ -366,10 +367,10 @@ class WatchTogetherPlugin(Star):
 
     # ---- 同步观影命令 ----
 
-    @register("group_command", "一起看")
+    @filter.command("一起看")
     async def create_watch_room(self, event: AstrMessageEvent):
         """创建观影房间：/一起看 电影名 [视频链接]"""
-        text = event.message_str.replace("/一起看", "").strip()
+        text = event.message_str.replace("/一起看", "").replace("一起看", "").strip()
         parts = text.split(maxsplit=1)
         title = parts[0] if parts else "未命名"
         video_source = parts[1] if len(parts) > 1 else ""
@@ -395,7 +396,7 @@ class WatchTogetherPlugin(Star):
             f"{'视频链接已设置' if video_source else '进入房间后上传视频或粘贴链接'}"
         )
 
-    @register("group_command", "正在看")
+    @filter.command("正在看")
     async def whats_playing(self, event: AstrMessageEvent):
         """查看当前正在播放的房间"""
         conn = sqlite3.connect(DB_PATH)
@@ -416,7 +417,7 @@ class WatchTogetherPlugin(Star):
             msg += f"  {title} [{status} {minutes:02d}:{seconds:02d}]\n"
         yield event.plain_result(msg)
 
-    @register("group_command", "现在演到哪了")
+    @filter.command("现在演到哪了")
     async def get_current_subtitle(self, event: AstrMessageEvent):
         """获取当前字幕内容（LLM可以用这个了解剧情进展）"""
         conn = sqlite3.connect(DB_PATH)
@@ -453,10 +454,10 @@ class WatchTogetherPlugin(Star):
 
     # ---- 异步观影命令 ----
 
-    @register("group_command", "看完了")
+    @filter.command("看完了")
     async def mark_watched(self, event: AstrMessageEvent):
         """记录看完：/看完了 电影名 [感想]"""
-        text = event.message_str.replace("/看完了", "").strip()
+        text = event.message_str.replace("/看完了", "").replace("看完了", "").strip()
         parts = text.split(maxsplit=1)
         title = parts[0] if parts else ""
         thoughts = parts[1] if len(parts) > 1 else ""
@@ -480,10 +481,10 @@ class WatchTogetherPlugin(Star):
         msg += "\n随时可以聊聊这部电影～"
         yield event.plain_result(msg)
 
-    @register("group_command", "打分")
+    @filter.command("打分")
     async def rate_movie(self, event: AstrMessageEvent):
         """给电影打分：/打分 电影名 8"""
-        text = event.message_str.replace("/打分", "").strip()
+        text = event.message_str.replace("/打分", "").replace("打分", "").strip()
         match = re.match(r'(.+?)\s+(\d+)', text)
         if not match:
             yield event.plain_result("格式：/打分 电影名 分数（1-10）")
@@ -512,7 +513,7 @@ class WatchTogetherPlugin(Star):
         stars = "⭐" * rating
         yield event.plain_result(f"《{title}》评分：{stars} {rating}/10")
 
-    @register("group_command", "片单")
+    @filter.command("片单")
     async def show_watchlog(self, event: AstrMessageEvent):
         """查看观影记录"""
         conn = sqlite3.connect(DB_PATH)
@@ -534,10 +535,10 @@ class WatchTogetherPlugin(Star):
                 msg += f"    💭 {thoughts[:50]}{'...' if len(thoughts or '') > 50 else ''}\n"
         yield event.plain_result(msg)
 
-    @register("group_command", "搜片")
+    @filter.command("搜片")
     async def search_movie(self, event: AstrMessageEvent):
         """搜索观影记录：/搜片 关键词"""
-        q = event.message_str.replace("/搜片", "").strip()
+        q = event.message_str.replace("/搜片", "").replace("搜片", "").strip()
         if not q:
             yield event.plain_result("格式：/搜片 关键词")
             return
