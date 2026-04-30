@@ -19,7 +19,6 @@ import time
 
 from astrbot.api.star import Context, Star, register
 from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api import logger
 
 # ============================================================
 # 配置
@@ -247,6 +246,19 @@ def start_web_server():
     @app.route("/api/videos/<filename>")
     def serve_video(filename):
         return send_from_directory(UPLOAD_DIR, filename)
+
+    # ---- WebDAV 代理（需配置环境变量）----
+
+    @app.route("/api/webdav/proxy")
+    def webdav_proxy():
+        """WebDAV代理——需要配置WATCH_TOGETHER_WEBDAV_URL环境变量"""
+        if not WEBDAV_URL:
+            return jsonify({"error": "WebDAV未配置。请设置WATCH_TOGETHER_WEBDAV_URL环境变量。"}), 501
+        path = request.args.get("path", "")
+        if not path:
+            return jsonify({"error": "缺少path参数"}), 400
+        # TODO: 实现WebDAV文件流代理
+        return jsonify({"error": "WebDAV代理功能尚未实现，请使用在线链接或本地上传。"}), 501
 
     # ---- 字幕查询（LLM用）----
 
