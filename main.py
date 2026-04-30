@@ -298,10 +298,12 @@ def start_web_server():
     @app.route("/api/watchlog/search", methods=["GET"])
     def search_watchlog():
         q = request.args.get("q", "")
+        # 转义LIKE通配符
+        escaped_q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         conn = sqlite3.connect(DB_PATH)
         logs = conn.execute(
-            "SELECT id, uid, title, category, rating, thoughts, watched_at FROM watch_log WHERE title LIKE ? OR thoughts LIKE ? ORDER BY watched_at DESC",
-            (f"%{q}%", f"%{q}%")
+            "SELECT id, uid, title, category, rating, thoughts, watched_at FROM watch_log WHERE title LIKE ? ESCAPE '\\' OR thoughts LIKE ? ESCAPE '\\' ORDER BY watched_at DESC",
+            (f"%{escaped_q}%", f"%{escaped_q}%")
         ).fetchall()
         conn.close()
         return jsonify([{
@@ -326,14 +328,16 @@ def start_web_server():
                 data = json.loads(msg)
 
                 # 更新房间状态到数据库
-                conn = sqlite3.connect(DB_PATH)
                 if data.get("type") in ("play", "pause", "seek"):
-                    conn.execute(
-                        "UPDATE rooms SET current_time=?, is_playing=? WHERE id=?",
-                        (data.get("time", 0), 1 if data["type"] == "play" else 0, room_id)
-                    )
-                    conn.commit()
-                conn.close()
+                    conn = sqlite3.connect(DB_PATH)
+                    try:
+                        conn.execute(
+                            "UPDATE rooms SET current_time=?, is_playing=? WHERE id=?",
+                            (data.get("time", 0), 1 if data["type"] == "play" else 0, room_id)
+                        )
+                        conn.commit()
+                    finally:
+                        conn.close()
 
                 # 广播给房间内其他人
                 for client in ws_rooms.get(room_id, []):
